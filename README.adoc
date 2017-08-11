@@ -1,0 +1,104 @@
+:toc: auto
+:linkattrs:
+
+[[istio-httpbin]]
+= Istio HttpBin
+
+A small project to demonstrate how prefixing `istio` to the application/service name is causing
+the https://istio.io/docs/reference/config/traffic-rules/destination-policies.html[Isito Destination policies] to fail
+
+[[pre-requisites]]
+= Pre-requisites
+
+* Kubernetes cluster is up and running
+* Istio is deployed into the kubernetes cluster
+
+[[build-and-deploy]]
+==  Building and Deploying
+
+[[build]]
+=== Build
+[code,sh]
+----
+./mvnw clean install
+----
+
+[[deploy]]
+=== Deploy
+
+The build above should create the required kubernetes manifests that allows to deploy the service in Istio Service Mesh.
+All the files will be located in the *target* directory of the project
+
+[code,sh]
+----
+
+kubectl apply -f /target/istio/isito-httpbin.yaml <1>
+kubectl apply -f target/istio/httpbin-ingress.yaml <2>
+kubectl apply -f target/istio/httpbin-svc.yaml <3>
+istioctl create  -f target/istio/isito-httpbin.yaml <4>
+
+----
+
+<1> Deploy the istio-httpbin in to kubernetes cluster and create the _istio-httpbin_ service
+<2> Create istio-httpbin related Kubernetes ingress resources
+<3> Create the Kubernetes egress resource to access httpbin.org from within Isito Service Mesh
+<4> Create the Istio `route-rule` and `destinaiton-policy`
+
+[[test]]
+== Testing
+
+Since the destination policy has defined the Circuit Breaker, the application should return the client
+with errors post 2 requests which means 90% failure for concurrent requests of 20 users.
+
+The application url can be found using the command `echo $(minikube ip):$(kubectl get svc istio-ingress -o jsonpath='{.spec.ports[0].nodePort}')/httbin/delay`
+
+To test application with concurrency you can using tools like http://gatling.io/[Gatling], the following load test script
+could be used with gatling
+
+[code,scala]
+----
+
+import scala.concurrent.duration._
+
+import io.gatling.core.Predef._
+import io.gatling.http.Predef._
+import io.gatling.jdbc.Predef._
+
+class HttpBinServiceSimulation extends Simulation {
+
+	val httpProtocol = http
+		.baseURL("http://192.168.99.100:30420") <1>
+		.inferHtmlResources()
+		.acceptHeader("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		.acceptEncodingHeader("gzip, deflate")
+		.acceptLanguageHeader("en-US,en;q=0.5")
+		.userAgentHeader("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:52.0) Gecko/20100101 Firefox/52.0")
+
+	val headers_0 = Map("Upgrade-Insecure-Requests" -> "1")
+
+    val uri1 = "http://192.168.99.100:30420/httpbin/delay" <1>
+
+	val scn = scenario("HttpBinServiceSimulation")
+		.exec(http("request_0")
+			.get("/httpbin/delay")
+			.headers(headers_0))
+
+	setUp(scn.inject(atOnceUsers(20))).protocols(httpProtocol)
+}
+
+----
+
+<1> replace it with Kubernetes cluster IP and isito-ingress node port
+
+=== Executing Test Simulations
+
+By default the gatling tests are disabled, they can be enabled passing `-Dskip.gatlingTest=false`
+system property to the maven command as shown below,
+
+[code,sh]
+----
+./mvnw -Dskip.gatlingTests=false gatling:integration-test
+----
+
+
+
