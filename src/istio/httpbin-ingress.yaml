@@ -1,0 +1,23 @@
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: @project.artifactId@-ingress
+  annotations:
+    kubernetes.io/ingress.class: "istio"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /httpbin/ip
+        backend:
+          serviceName: @project.artifactId@
+          servicePort: 8080
+      - path: /httpbin/delay
+        backend:
+          serviceName: @project.artifactId@
+          servicePort: 8080
+      - path: /delay
+        backend:
+          serviceName: @project.artifactId@
+          servicePort: 8080

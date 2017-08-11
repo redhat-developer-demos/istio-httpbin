@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: istio-greeter
+
+# properties to call egress service using external url
+httpbin:
+  ip:
+    url: http://externalbin/ip
+  delay:
+    url: http://externalbin/delay
+    seconds: 10

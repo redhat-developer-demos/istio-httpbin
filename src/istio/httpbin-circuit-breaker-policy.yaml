@@ -1,0 +1,25 @@
+---
+type: route-rule
+name: @project.artifactId@-default-route
+spec:
+  destination: @project.artifactId@.default.svc.cluster.local
+  precedence: 1
+  route:
+  - tags:
+      version: "@project.version@"
+    weight: 100
+
+---
+type: destination-policy
+name: @project.artifactId@-default-cb
+spec:
+  destination: @project.artifactId@.svc.cluster.local
+  policy:
+  - tags:
+      version: "@project.version@"
+    circuitBreaker:
+      simpleCb:
+        maxConnections: 1
+        httpMaxRequestsPerConnection: 1
+        sleepWindow: 30s
+        httpDetectionInterval: 1m
